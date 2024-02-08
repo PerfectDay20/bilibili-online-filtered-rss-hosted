@@ -1,14 +1,20 @@
 package main
 
 import (
-	"encoding/json"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
+	"os"
 	"time"
 )
+
+func init() {
+	// set slogger
+	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
+	slog.SetDefault(logger)
+}
 
 func main() {
 	lambda.Start(exec)
@@ -18,22 +24,28 @@ func exec() (events.APIGatewayProxyResponse, error) {
 	response := events.APIGatewayProxyResponse{StatusCode: 400}
 
 	// check dynamodb cache
-	table := initTable()
+	table, err := initDynamoTable()
+	if err != nil {
+		slog.Info("Can't access dynamo table, abort now")
+		return response, err
+	}
+
+	needUpdate := false
 	record, err := table.GetRecord()
 	if err != nil {
 		return response, err
 	}
-	needUpdate := false
+
 	if len(record.Record) == 0 {
-		log.Println("DynamoDB cache empty, need to update")
+		slog.Info("DynamoDB cache empty, need to update")
 		needUpdate = true
 	} else if time.Now().Sub(time.Unix(record.UpdateTimestamp, 0)) > 10*time.Minute {
-		log.Println("Cached content expired, need to update")
+		slog.Info("Cached content expired, need to update")
 		needUpdate = true
 	}
 
 	if needUpdate {
-		log.Println("Call bilibili http api now")
+		slog.Info("Call bilibili http api now")
 		bytes, err := callApi()
 		if err != nil {
 			return response, err
@@ -45,11 +57,11 @@ func exec() (events.APIGatewayProxyResponse, error) {
 		rssString := encodeRss(&bilibiliData)
 		err = table.SetRecord(rssString)
 		if err != nil {
-			log.Printf("Set record failed, reason: %v\n", err)
+			slog.Error("Set record failed", "reason", err)
 		}
 		response.Body = rssString
 	} else {
-		log.Println("Return cached record")
+		slog.Info("Return cached record")
 		response.Body = record.Record
 	}
 
@@ -58,17 +70,12 @@ func exec() (events.APIGatewayProxyResponse, error) {
 	return response, nil
 }
 
-func parseJson(bytes []byte) (BilibiliData, error) {
-	var response BilibiliData
-
-	if err := json.Unmarshal(bytes, &response); err != nil {
-		return response, err
-	}
-	return response, nil
-}
-
 func callApi() ([]byte, error) {
+	startTime := time.Now()
 	resp, err := http.Get("https://api.bilibili.com/x/web-interface/online/list")
+	durationMs := (time.Now().Sub(startTime)).Milliseconds()
+	slog.Info("call http api time", "time", durationMs)
+
 	if err != nil {
 		return nil, err
 	}
@@ -78,5 +85,4 @@ func callApi() ([]byte, error) {
 		return nil, err
 	}
 	return bytes, nil
-
 }

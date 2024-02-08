@@ -7,7 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"log"
+	"log/slog"
 	"time"
 )
 
@@ -45,7 +45,7 @@ func (basics TableBasics) SetRecord(content string) error {
 	if err != nil {
 		return err
 	}
-	log.Println("Successful set record")
+	slog.Info("Successful set record")
 	return err
 }
 
@@ -56,15 +56,15 @@ func (basics TableBasics) GetRecord() (HistoryRssRecord, error) {
 		TableName: aws.String(basics.TableName), Key: record.GetKey(),
 	})
 	if err != nil {
-		log.Printf("Couldn't get info about %v. Here's why: %v\n", RecordId, err)
+		slog.Error("Couldn't get info record", "record", RecordId, "reason", err)
 	} else {
 		if response.Item == nil {
-			log.Println("Content not exists in DynamoDB")
+			slog.Info("Content not exists in DynamoDB")
 			return record, nil
 		} else {
 			err = attributevalue.UnmarshalMap(response.Item, &record)
 			if err != nil {
-				log.Printf("Couldn't unmarshal response. Here's why: %v\n", err)
+				slog.Error("Couldn't unmarshal response", "reason", err)
 			}
 		}
 
@@ -72,12 +72,13 @@ func (basics TableBasics) GetRecord() (HistoryRssRecord, error) {
 	return record, err
 }
 
-func initTable() *TableBasics {
+func initDynamoTable() (*TableBasics, error) {
 	sdkConfig, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
-		log.Fatalf("unable to load SDK config, %v", err)
+		slog.Error("unable to load SDK config", "reason", err)
+		return nil, err
 	}
 
 	tableBasics := TableBasics{"rss_cache", dynamodb.NewFromConfig(sdkConfig)}
-	return &tableBasics
+	return &tableBasics, nil
 }

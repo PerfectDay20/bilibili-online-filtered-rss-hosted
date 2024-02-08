@@ -1,5 +1,7 @@
 package main
 
+import "encoding/json"
+
 type BilibiliData struct {
 	Code    int
 	Message string
@@ -28,4 +30,13 @@ type Stat struct {
 	Favorite int
 	Coin     int
 	Share    int
+}
+
+func parseJson(bytes []byte) (BilibiliData, error) {
+	var response BilibiliData
+
+	if err := json.Unmarshal(bytes, &response); err != nil {
+		return response, err
+	}
+	return response, nil
 }

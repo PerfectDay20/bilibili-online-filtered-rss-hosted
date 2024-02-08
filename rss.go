@@ -51,16 +51,16 @@ func createItem(bilibiliData *BilibiliData) []Item {
 // not just use the data.desc, add more info such as stats
 func createItemDesc(data *Data) string {
 	s := `<b>author:</b> {{.Owner.Name}}
-	<p></p>
-	<b>category:</b> {{.Tname}}
-	<p></p>
-	<b>desc:</b> {{.Desc}}
-	<p></p>
-	<b>view:</b> {{convertIntForHuman .Stat.View}}
-	<p></p>
-	<b>danmaku:</b> {{convertIntForHuman .Stat.Danmaku}}
-	<p></p>
-	<img style="width:100%" src="{{.Pic}}" width="500">`
+<p></p>
+<b>category:</b> {{.Tname}}
+<p></p>
+<b>desc:</b> {{.Desc}}
+<p></p>
+<b>view:</b> {{convertIntForHuman .Stat.View}}
+<p></p>
+<b>danmaku:</b> {{convertIntForHuman .Stat.Danmaku}}
+<p></p>
+<img style="width:100%" src="{{.Pic}}" width="500">`
 
 	t := template.New("itemDesc")
 	t = t.Funcs(template.FuncMap{"convertIntForHuman": convertIntForHuman})

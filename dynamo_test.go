@@ -7,7 +7,7 @@ import (
 )
 
 func TestDynamoGet(t *testing.T) {
-	table := initTable()
+	table, _ := initDynamoTable()
 	//table.SetRecord("test unix time")
 	record, _ := table.GetRecord()
 	fmt.Println(record)

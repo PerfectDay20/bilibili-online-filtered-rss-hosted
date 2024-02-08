@@ -20,6 +20,7 @@ func filter(data []Data) ([]Data, error) {
 	categories := mapset.NewThreadUnsafeSet(blacklist.Categories...)
 
 	var ret []Data
+Loop:
 	for _, datum := range data {
 		if authors.Contains(datum.Owner.Name) {
 			continue
@@ -29,15 +30,10 @@ func filter(data []Data) ([]Data, error) {
 			continue
 		}
 
-		containKeywords := false
 		for _, keyword := range blacklist.Keywords {
 			if strings.Contains(datum.Title, keyword) || strings.Contains(datum.Desc, keyword) {
-				containKeywords = true
-				break
+				continue Loop
 			}
-		}
-		if containKeywords {
-			continue
 		}
 
 		ret = append(ret, datum)
