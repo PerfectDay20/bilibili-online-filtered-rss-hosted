@@ -10,10 +10,20 @@ import (
 	"time"
 )
 
+var table *TableBasics
+
 func init() {
 	// set slogger
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
 	slog.SetDefault(logger)
+
+	// get cached rss content in dynamo
+	t, err := initDynamoTable()
+	if err != nil {
+		slog.Error("Can't access dynamo table, abort now")
+		os.Exit(2)
+	}
+	table = t
 }
 
 func main() {
@@ -24,12 +34,6 @@ func exec() (events.APIGatewayProxyResponse, error) {
 	response := events.APIGatewayProxyResponse{StatusCode: 400}
 
 	// check dynamodb cache
-	table, err := initDynamoTable()
-	if err != nil {
-		slog.Info("Can't access dynamo table, abort now")
-		return response, err
-	}
-
 	needUpdate := false
 	record, err := table.GetRecord()
 	if err != nil {
