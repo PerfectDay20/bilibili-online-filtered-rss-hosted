@@ -17,8 +17,8 @@ type HistoryRssRecord struct {
 	UpdateTimestamp int64  `dynamodbav:"UpdateTimestamp"`
 }
 
-func (record HistoryRssRecord) GetKey() map[string]types.AttributeValue {
-	id, err := attributevalue.Marshal(record.ID)
+func (h HistoryRssRecord) GetKey() map[string]types.AttributeValue {
+	id, err := attributevalue.Marshal(h.ID)
 	if err != nil {
 		panic(err)
 	}
@@ -33,14 +33,14 @@ type TableBasics struct {
 const RecordId = "dummy"
 
 // SetRecord add rss string content to dynamodb, the key is fixed
-func (basics TableBasics) SetRecord(content string) error {
+func (t TableBasics) SetRecord(content string) error {
 	record := HistoryRssRecord{ID: RecordId, Record: content, UpdateTimestamp: time.Now().Unix()}
 	item, err := attributevalue.MarshalMap(record)
 	if err != nil {
 		return err
 	}
-	_, err = basics.DynamoDbClient.PutItem(context.TODO(), &dynamodb.PutItemInput{
-		TableName: aws.String(basics.TableName), Item: item,
+	_, err = t.DynamoDbClient.PutItem(context.TODO(), &dynamodb.PutItemInput{
+		TableName: aws.String(t.TableName), Item: item,
 	})
 	if err != nil {
 		return err
@@ -50,10 +50,10 @@ func (basics TableBasics) SetRecord(content string) error {
 }
 
 // GetRecord get rss string content from dynamodb, the key is fixed
-func (basics TableBasics) GetRecord() (HistoryRssRecord, error) {
+func (t TableBasics) GetRecord() (HistoryRssRecord, error) {
 	record := HistoryRssRecord{ID: RecordId}
-	response, err := basics.DynamoDbClient.GetItem(context.TODO(), &dynamodb.GetItemInput{
-		TableName: aws.String(basics.TableName), Key: record.GetKey(),
+	response, err := t.DynamoDbClient.GetItem(context.TODO(), &dynamodb.GetItemInput{
+		TableName: aws.String(t.TableName), Key: record.GetKey(),
 	})
 	if err != nil {
 		slog.Error("Couldn't get info record", "record", RecordId, "reason", err)

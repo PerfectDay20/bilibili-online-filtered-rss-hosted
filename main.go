@@ -10,6 +10,7 @@ import (
 	"time"
 )
 
+// dynamo table as cache
 var table *TableBasics
 
 func init() {
