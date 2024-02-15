@@ -1,7 +1,6 @@
 package main
 
 import (
-	_ "embed"
 	"fmt"
 	"os"
 	"testing"
@@ -18,5 +17,4 @@ func TestLocal(t *testing.T) {
 	}
 	rss := encodeRss(&bilibiliData)
 	fmt.Println(rss)
-
 }
