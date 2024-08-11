@@ -4,4 +4,4 @@ build:
 
 .PHONY: upload
 upload: build
-	aws --profile personal lambda update-function-code --function-name rss --zip-file fileb://lambda-handler.zip
+	aws lambda update-function-code --function-name rss --zip-file fileb://lambda-handler.zip
