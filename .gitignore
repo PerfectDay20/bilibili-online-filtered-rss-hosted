@@ -24,3 +24,5 @@
 !*/
 !Makefile
 !.github/workflows/*
+
+!Dockerfile
