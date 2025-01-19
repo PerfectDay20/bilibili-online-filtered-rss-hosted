@@ -1,8 +1,6 @@
 package main
 
 import (
-	"github.com/aws/aws-lambda-go/events"
-	"github.com/aws/aws-lambda-go/lambda"
 	"io"
 	"log/slog"
 	"net/http"
@@ -10,76 +8,58 @@ import (
 	"time"
 )
 
-// dynamo table as cache
-var table *TableBasics
-
 func init() {
 	// set slogger
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
 	slog.SetDefault(logger)
-
-	// get cached rss content in dynamo
-	t, err := initDynamoTable()
-	if err != nil {
-		slog.Error("Can't access dynamo table, abort now")
-		os.Exit(2)
-	}
-	table = t
 }
 
 func main() {
-	lambda.Start(exec)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", exec)
+	err := http.ListenAndServe(":8080", mux)
+	slog.Error(err.Error())
 }
 
-func exec() (events.APIGatewayProxyResponse, error) {
-	response := events.APIGatewayProxyResponse{StatusCode: 400}
+var (
+	cacheTime    = time.Time{}
+	cacheContent = ""
+)
 
-	// check dynamodb cache
-	needUpdate := false
-	record, err := table.GetRecord()
-	if err != nil {
-		return response, err
-	}
-
-	if len(record.Record) == 0 {
-		slog.Info("DynamoDB cache empty, need to update")
-		needUpdate = true
-	} else if time.Now().Sub(time.Unix(record.UpdateTimestamp, 0)) > 10*time.Minute {
-		slog.Info("Cached content expired, need to update")
-		needUpdate = true
-	}
-
+func exec(w http.ResponseWriter, r *http.Request) {
+	needUpdate := time.Since(cacheTime) > 10*time.Minute
+	body := ""
 	if needUpdate {
-		slog.Info("Call bilibili http api now")
+		slog.Info("Need update, call bilibili http api now")
 		bytes, err := callApi()
 		if err != nil {
-			return response, err
+			w.Write([]byte(err.Error()))
+			return
 		}
 		bilibiliData, err := parseJson(bytes)
 		if err != nil {
-			return response, err
+			w.Write([]byte(err.Error()))
+			return
 		}
-		rssString := encodeRss(&bilibiliData)
-		err = table.SetRecord(rssString)
-		if err != nil {
-			slog.Error("Set record failed", "reason", err)
-		}
-		response.Body = rssString
+		body = encodeRss(&bilibiliData)
+
+		// update cache time and content
+		cacheTime = time.Now()
+		cacheContent = body
 	} else {
 		slog.Info("Return cached record")
-		response.Body = record.Record
+		body = cacheContent
 	}
 
-	response.StatusCode = 200
-	response.Headers = map[string]string{"content-type": "application/rss+xml"}
-	return response, nil
+	w.Header().Set("content-type", "application/rss+xml")
+	w.Write([]byte(body))
 }
 
 func callApi() ([]byte, error) {
 	startTime := time.Now()
 	resp, err := http.Get("https://api.bilibili.com/x/web-interface/online/list")
-	durationMs := (time.Now().Sub(startTime)).Milliseconds()
-	slog.Info("call http api time", "time", durationMs)
+	durationMs := (time.Since(startTime)).Milliseconds()
+	slog.Info("call http api", "time_cost_ms", durationMs)
 
 	if err != nil {
 		return nil, err
